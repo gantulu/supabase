@@ -1,0 +1,10 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Deno and editor artifacts
+.DS_Store
+.vscode/
+.idea/
+coverage/
