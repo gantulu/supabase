@@ -74,3 +74,40 @@ Not yet enabled:
 - A confirmed callback failure result-code mapping. This is intentionally blocked on the official documentation conflict above.
 
 No SQL in this repository has been applied to a Supabase database. No secrets, deployments, or live payments were changed or run.
+
+
+## Expanded field contract (official reference)
+
+Create Invoice required fields listed by Duitku:
+- paymentAmount: integer amount in IDR.
+- merchantOrderId: string up to 50 characters; use a unique merchant-generated ID.
+- productDetails: string up to 255 characters.
+- email: string up to 255 characters.
+- callbackUrl and returnUrl: strings up to 255 characters.
+- Required request headers are Content-Type, x-duitku-timestamp, x-duitku-signature, and x-duitku-merchantcode.
+- expiryPeriod is measured in minutes; documented examples include 5, 10, and 60.
+- itemDetails entries contain name (string up to 50), quantity (integer), and price (integer, no decimals). The documented item total must equal paymentAmount.
+- Optional fields include additionalParam, merchantUserInfo, customerVaName, phoneNumber, itemDetails, customerDetail, expiryPeriod, paymentMethod, and creditCardDetail. Credit-card transactions require customerDetail and itemDetails; E-Commerce methods require customerVaName. Tokenization fields must not be enabled implicitly.
+- The response includes merchantCode, reference, paymentUrl, statusCode, and statusMessage. Persist reference and only use the provider-returned paymentUrl.
+- Duitku's docs state duplicate requests using the same order ID may return the same response for five minutes. Simultaneous requests can produce HTTP 409 or amount-mismatch errors. Never retry a changed amount with the same merchant order ID.
+
+Customer and address objects:
+- customerDetail may include firstName, lastName, email, phoneNumber, merchantCustomerId, billingAddress, and shippingAddress.
+- Address may include firstName, lastName, address, city, postalCode, phone, and countryCode.
+- Duitku describes countryCode as ISO 3166-1 alpha-3, while its examples use ID. Confirm strict country-code expectations with Duitku if needed.
+
+Payment method codes listed in the documentation include VC (credit card), BC (BCA VA), M2 (Mandiri VA), I1 (BNI VA), BR (BRIVA), IR (Indomaret), OV (OVO), DA (DANA), SP (ShopeePay QRIS), NQ (Nobu QRIS), SQ (Nusapay QRIS), DN (Indodana), AT (Atome), JP (Jenius Pay), and T1/T2/T3 (Tokopedia). Availability depends on merchant configuration; this list is informational, not a guarantee that a method is enabled.
+
+## Frontend, browser and return-page details
+
+- Sandbox Duitku JS: https://app-sandbox.duitku.com/lib/js/duitku.js
+- Production Duitku JS: https://app-prod.duitku.com/lib/js/duitku.js
+- checkout.process accepts the Duitku reference and options including defaultLanguage (id or en), optional estimated currency (USD/EUR), and successEvent, pendingEvent, errorEvent, and closeEvent UI callbacks.
+- JS callbacks are for customer-facing notification only and must not update authoritative payment state.
+- Window redirection can use the paymentUrl returned by Create Invoice. The lang query can select id or en. Currency query parameters are estimates only; payment remains IDR.
+- The returnUrl receives merchantOrderId, reference, and resultCode, but users can manually change URL parameters. Do not use these values to update authoritative payment state.
+- The published compatibility list states web Chrome 26+, Firefox 29+, Internet Explorer 10+, Safari 6+; mobile Chrome 32+, Android 4.4+, Safari 8+. This vendor list does not replace current application testing.
+
+## Callback retry and response contract
+
+The callback endpoint must accept HTTP POST with application/x-www-form-urlencoded. Duitku says the callback URL must be publicly reachable over HTTP/HTTPS and documents retrying if HTTP 200 is not received, up to five attempts. Only acknowledge HTTP 200 after the verified callback is durably persisted and processed idempotently. The current handler intentionally fails closed with HTTP 503 until that persistence and exact amount reconciliation are implemented.
