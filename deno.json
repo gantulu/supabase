@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "test": "deno test --allow-net tests/",
+    "check": "deno check edge-functions/duitku-create-invoice/index.ts edge-functions/duitku-callback/index.ts edge-functions/order-status/index.ts tests/signature.test.ts"
+  },
+  "fmt": {
+    "lineWidth": 90,
+    "semiColons": true,
+    "singleQuote": false
+  }
+}
