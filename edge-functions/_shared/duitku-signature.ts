@@ -1,11 +1,11 @@
 /**
- * Duitku signature helpers.
+ * Duitku POP HMAC-SHA256 signatures.
  *
- * Keep provider-specific signing and callback verification centralized here.
- * Confirm the exact formula, field ordering, encoding, and callback contract against
- * the current official Duitku POP documentation before enabling payment processing.
+ * Create Invoice: HMAC_SHA256(merchantCode + timestamp, API key)
+ * Callback:       HMAC_SHA256(merchantCode + amount + merchantOrderId, API key)
+ *
+ * The legacy SHA-256-only Create Invoice signature is obsolete per official docs.
  */
-
 export async function hmacSha256Hex(
   secret: string,
   message: string,
@@ -25,6 +25,44 @@ export async function hmacSha256Hex(
   return Array.from(new Uint8Array(signature), (byte) =>
     byte.toString(16).padStart(2, "0")
   ).join("");
+}
+
+export function createInvoiceStringToSign(
+  merchantCode: string,
+  timestamp: string,
+): string {
+  return merchantCode + timestamp;
+}
+
+export async function createInvoiceSignature(
+  merchantCode: string,
+  timestamp: string,
+  apiKey: string,
+): Promise<string> {
+  return await hmacSha256Hex(
+    apiKey,
+    createInvoiceStringToSign(merchantCode, timestamp),
+  );
+}
+
+export function callbackStringToSign(
+  merchantCode: string,
+  amount: string,
+  merchantOrderId: string,
+): string {
+  return merchantCode + amount + merchantOrderId;
+}
+
+export async function callbackSignature(
+  merchantCode: string,
+  amount: string,
+  merchantOrderId: string,
+  apiKey: string,
+): Promise<string> {
+  return await hmacSha256Hex(
+    apiKey,
+    callbackStringToSign(merchantCode, amount, merchantOrderId),
+  );
 }
 
 export function constantTimeEqual(a: string, b: string): boolean {
