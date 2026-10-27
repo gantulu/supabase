@@ -175,7 +175,7 @@ declare
   v_payment public.asr_payments%rowtype;
 begin
   if nullif(btrim(p_merchant_order_id), '') is null or nullif(btrim(p_provider_reference), '') is null
-     or p_payment_url is null or p_payment_url not like 'https://%' or p_provider_result_code <> '00' then
+     or p_payment_url is null or p_payment_url not like 'https://%' or p_provider_result_code is distinct from '00' then
     raise exception 'invalid_provider_invoice_response' using errcode = '22023';
   end if;
   select p.* into v_payment from public.asr_payments p
