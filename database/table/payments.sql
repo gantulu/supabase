@@ -18,9 +18,11 @@ create table if not exists public.asr_payments (
   callback_payload jsonb,
   paid_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint asr_payments_order_id_unique unique (order_id)
+  updated_at timestamptz not null default now()
 );
+
+create unique index if not exists asr_payments_order_id_uidx
+  on public.asr_payments (order_id);
 
 create index if not exists asr_payments_status_idx
   on public.asr_payments (status);
