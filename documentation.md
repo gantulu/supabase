@@ -56,7 +56,7 @@ stringToSign = merchantCode + timestamp
 signature = HMAC_SHA256(stringToSign, apiKey)
 ```
 
-Gunakan API key sebagai secret HMAC, bukan sebagai bagian dari `stringToSign`. Pastikan timestamp yang ditandatangani sama persis dengan nilai header yang dikirim. Dokumentasi menyatakan metode signature lama sudah usang; jangan gunakan signature MD5 atau SHA256 tanpa HMAC.
+Gunakan API key sebagai secret HMAC, bukan sebagai bagian dari `stringToSign`. Timestamp harus sama persis dengan nilai header yang ditandatangani dan dikirim. Dokumentasi resmi mendefinisikan timestamp sebagai Unix timestamp dalam milidetik menurut zona waktu Jakarta. Metode signature lama sudah usang; jangan gunakan signature MD5 atau SHA256 tanpa HMAC.
 
 ## 4. Request Create Invoice
 
