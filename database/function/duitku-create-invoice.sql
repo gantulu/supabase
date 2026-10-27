@@ -57,9 +57,14 @@ begin
 
   select o.* into v_order from public.asr_orders o where o.idempotency_key = p_idempotency_key;
   if found then
-    select p.* into v_payment from public.asr_payments p where p.order_id = v_order.id;
+    select p.* into v_payment from public.asr_payments p where p.order_id = v_order.id for update;
     if not found then
       raise exception 'existing_order_has_no_payment_record' using errcode = 'P0001';
+    end if;
+    if v_payment.provider_merchant_code is distinct from p_merchant_code and v_payment.status <> 'paid' then
+      update public.asr_payments set status = 'needs_review', updated_at = now() where id = v_payment.id;
+      update public.asr_orders set payment_status = 'needs_review', updated_at = now() where id = v_order.id;
+      v_payment.status := 'needs_review';
     end if;
     select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'name', item->>'name', 'quantity', (item->>'quantity')::integer,
