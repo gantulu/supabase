@@ -8,8 +8,8 @@ Read [`docs/duitku-pop-integration.md`](../docs/duitku-pop-integration.md) and t
 
 ## Functions
 
-- `duitku-create-invoice/` — request validation entry point; invoice creation remains disabled until trusted order persistence and idempotency RPC are wired.
-- `duitku-callback/` — validates the documented `application/x-www-form-urlencoded` callback signature; durable amount reconciliation and callback RPC are still required before acknowledgement.
+- `duitku-create-invoice/` — validates guest checkout input, creates an order and reserves stock through a transactional RPC, signs the Create Invoice request, and persists the provider reference/payment URL.
+- `duitku-callback/` — validates the form-urlencoded callback signature, reconciles merchant/order/reference/amount, persists the result through a transactional RPC, and only then acknowledges HTTP 200.
 - `order-status/` — returns the minimum order/payment status to an authorized guest or user once authorization is implemented.
 
 ## Security requirements
@@ -17,6 +17,9 @@ Read [`docs/duitku-pop-integration.md`](../docs/duitku-pop-integration.md) and t
 - Keep the service-role key and Duitku API key in server-side function secrets only.
 - Do not accept client-supplied prices or totals as authoritative.
 - Use database transactions/RPCs for idempotency, stock changes, and payment state transitions.
-- The callback docs conflict on failure result code (`01` vs `02`); unknown or conflicting callback outcomes must become `needs_review`, not an inferred `failed`.
-- Browser JavaScript callback events are for UI feedback only and must never change authoritative payment state.
-- Do not deploy until official callback result-code ambiguity, database persistence, and integration tests are resolved.
+- The official callback docs conflict on failure result code (`01` vs `02`); all non-`00` callback results remain `needs_review`, not an inferred `failed`.
+- `DUITKU_ENVIRONMENT`, `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_CALLBACK_URL`, `DUITKU_RETURN_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` must be configured as server-side secrets/environment. Set `APP_ORIGIN` to the exact frontend origin in production.
+- The invoice function accepts `idempotency_key` (16–200 chars), `customer`, `shipping_address`, `items` (`productId`, `quantity`), and optional integer `shipping_cost`. It does not accept client-supplied prices or totals.
+- Pending orders reserve stock. There is no automated expiry/release job in this V1; reconcile stale orders before production.
+- Browser JavaScript callback events and return-page query parameters are UI-only and must never change authoritative payment state.
+- Source implementation has not been applied to a live database or deployed. Run SQL/function tests and resolve the callback result-code discrepancy before production use.
