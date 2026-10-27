@@ -69,7 +69,7 @@ Parameter utama yang didokumentasikan:
 | `productDetails` | string, maks. 255 karakter | Ya | Deskripsi produk/transaksi |
 | `email` | string, maks. 255 karakter | Ya | Email pelanggan |
 | `callbackUrl` | string, maks. 255 karakter | Ya | URL HTTP callback backend |
-| `returnUrl` | string | Sesuai kontrak request | URL tujuan setelah pelanggan kembali |
+| `returnUrl` | string, maks. 255 karakter | Ya | URL tujuan setelah transaksi selesai atau pelanggan membatalkan/kembali |
 | `additionalParam` | string, maks. 255 karakter | Tidak | Parameter tambahan; URL-encode jika digunakan |
 | `merchantUserInfo` | string, maks. 255 karakter | Tidak | Informasi pengguna merchant |
 | `customerVaName` | string, maks. 20 karakter | Tidak | Nama pada konfirmasi VA |
@@ -78,9 +78,9 @@ Parameter utama yang didokumentasikan:
 | `itemDetails` | array objek | Tidak | Detail item |
 | `customerDetail` | objek | Tidak | Informasi pelanggan dan alamat |
 | `creditCardDetail` | objek | Sesuai fitur | Detail tokenisasi kartu |
-| `expiryPeriod` | integer | Tidak | Masa berlaku invoice dalam menit pada contoh resmi |
+| `expiryPeriod` | integer | Tidak | Masa berlaku transaksi dalam menit; contoh yang dicantumkan dokumentasi resmi: `5`, `10`, atau `60`. Verifikasi dukungan/ketentuan akun sebelum menetapkan nilai lain. |
 
-Objek `itemDetails` menggunakan `name`, `quantity`, dan `price`. Dokumentasi mensyaratkan `paymentAmount` setara dengan total nominal item yang dikirim. Backend merchant harus menghitung total dari data katalog tepercaya, bukan mempercayai harga/total dari browser.
+Objek `itemDetails` menggunakan `name`, `quantity`, dan `price`. Dokumentasi resmi menyatakan `paymentAmount` harus sama dengan nominal total `itemDetails`. Pastikan rumus total mengikuti struktur item dan kontrak channel yang digunakan; jangan mengasumsikan perilaku pembulatan atau biaya tambahan yang tidak dinyatakan dokumentasi. Backend merchant harus menghitung total dari data katalog tepercaya, bukan mempercayai harga/total dari browser.
 
 Untuk transaksi tokenisasi kartu, dokumentasi menyebut `email`, `customerDetail.email`, `customerDetail.merchantCustomerId`, dan `creditCardDetail.saveCardToken` menjadi wajib. Aktifkan hanya jika akun merchant mendukung fitur tersebut.
 
@@ -102,7 +102,7 @@ Contoh struktur request minimal (nilai hanya contoh, bukan kredensial nyata):
 }
 ```
 
-Lengkapi struktur sesuai kebutuhan integrasi dan skema resmi terkini. Contoh ini bukan pengganti validasi parameter untuk channel yang dipilih.
+Lengkapi struktur sesuai kebutuhan integrasi dan skema resmi terkini. `returnUrl` dan `callbackUrl` merupakan parameter wajib menurut tabel resmi. Contoh `expiryPeriod: 10` adalah nilai contoh dalam menit; dokumentasi POP juga mencantumkan contoh `5` dan `60`. Contoh ini bukan pengganti validasi parameter untuk channel yang dipilih.
 
 ## 5. Respons Create Invoice
 
