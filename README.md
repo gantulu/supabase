@@ -14,6 +14,6 @@ Use the [official Duitku POP documentation](https://docs.duitku.com/pop/id/) as 
 
 ## Status
 
-This repository is a source-code workspace. SQL files are not applied automatically, Edge Functions are not deployed automatically, and no payment credentials are stored in this repository. Invoice orchestration and durable callback state transitions remain disabled until their database RPCs and integration tests are implemented. The official docs currently conflict on the callback failure result code; unknown outcomes must remain under review.
+This repository is a source-code workspace. Duitku invoice creation, transactional order/payment RPCs, and durable callback processing are implemented as source files on the feature branch, but SQL has not been applied and Edge Functions have not been deployed or integration-tested. No payment credentials are stored in this repository. The official POP docs conflict on the callback failure result code (`01` vs `02`); non-`00` outcomes remain `needs_review` until Duitku confirms the contract.
 
 See `database/README.md` and `edge-functions/README.md` for component-specific notes.
