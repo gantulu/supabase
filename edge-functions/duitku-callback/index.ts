@@ -1,11 +1,20 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { callbackSignature, constantTimeEqual } from "../_shared/duitku-signature.ts";
 import { loadDuitkuConfig } from "../_shared/duitku-client.ts";
 import { jsonResponse, methodNotAllowed } from "../_shared/response.ts";
+import { isRecord, nonEmptyString } from "../_shared/validation.ts";
+
+function serviceClient() {
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serviceRoleKey) throw new Error("Supabase server configuration is incomplete");
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 Deno.serve(async (request) => {
-  if (request.method !== "POST") {
-    return methodNotAllowed();
-  }
+  if (request.method !== "POST") return methodNotAllowed();
 
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.includes("application/x-www-form-urlencoded")) {
@@ -14,7 +23,9 @@ Deno.serve(async (request) => {
 
   let form: URLSearchParams;
   try {
-    form = new URLSearchParams(await request.text());
+    const rawBody = await request.text();
+    if (rawBody.length > 64_000) return jsonResponse({ error: "callback_payload_too_large" }, 413);
+    form = new URLSearchParams(rawBody);
   } catch {
     return jsonResponse({ error: "invalid_callback_payload" }, 400);
   }
@@ -22,16 +33,21 @@ Deno.serve(async (request) => {
   const merchantCode = form.get("merchantCode");
   const amount = form.get("amount");
   const merchantOrderId = form.get("merchantOrderId");
+  const reference = form.get("reference");
   const signature = form.get("signature");
   const resultCode = form.get("resultCode");
 
-  if (!merchantCode || !amount || !merchantOrderId || !signature || !resultCode) {
-    return jsonResponse({ error: "missing_callback_fields" }, 400);
+  if (!nonEmptyString(merchantCode, 100) || !nonEmptyString(amount, 30) ||
+      !nonEmptyString(merchantOrderId, 50) || !nonEmptyString(reference, 255) ||
+      !nonEmptyString(signature, 256) || !nonEmptyString(resultCode, 20)) {
+    return jsonResponse({ error: "missing_or_invalid_callback_fields" }, 400);
   }
 
   let config;
+  let supabase;
   try {
     config = loadDuitkuConfig();
+    supabase = serviceClient();
   } catch {
     return jsonResponse({ error: "server_configuration_error" }, 500);
   }
@@ -56,18 +72,40 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "invalid_signature" }, 401);
   }
 
-  // Official docs conflict on callback failure codes: the callback section lists
-  // 01=Failed, while the API response table lists 02=Failed. Only 00=Success
-  // is consistent. Do not finalize a failure until Duitku confirms the contract.
-  const outcome = resultCode === "00" ? "paid_candidate" : "needs_review";
+  // Persist only a small allowlist of callback fields; never store the signature or raw form body.
+  const callbackPayload = {
+    resultCode,
+    paymentCode: form.get("paymentCode"),
+    publisherOrderId: form.get("publisherOrderId"),
+    settlementDate: form.get("settlementDate"),
+    issuerCode: form.get("issuerCode"),
+    transactionState: form.get("transactionState"),
+    transactionStateStatus: form.get("transactionStateStatus"),
+  };
 
-  // Persisting the verified callback, validating the exact amount against the
-  // stored order, and applying idempotent state transitions requires the trusted
-  // callback RPC. Do not acknowledge before that persistence exists, or a retry
-  // could be lost. No order/payment state is changed by this handler yet.
+  const { data, error } = await supabase.rpc("asr_process_duitku_callback", {
+    p_merchant_code: merchantCode,
+    p_amount: amount,
+    p_merchant_order_id: merchantOrderId,
+    p_reference: reference,
+    p_result_code: resultCode,
+    p_callback_payload: callbackPayload,
+  });
+
+  if (error || !isRecord(data) || typeof data.status !== "string") {
+    // Do not acknowledge a callback that was not durably persisted; Duitku will retry.
+    return jsonResponse({ error: "callback_persistence_failed" }, 500);
+  }
+
+  if (data.status === "not_found") {
+    return jsonResponse({ error: "payment_not_found" }, 404);
+  }
+
+  // needs_review is a successfully persisted outcome, not a callback-processing failure.
+  // Return HTTP 200 so retries do not obscure the review state with duplicate deliveries.
   return jsonResponse({
-    error: "callback_persistence_not_configured",
-    outcome,
-    payment_status: outcome === "needs_review" ? "needs_review" : "pending",
-  }, 503);
+    received: true,
+    status: data.status,
+    ...(data.duplicate === true ? { duplicate: true } : {}),
+  }, 200);
 });
