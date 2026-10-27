@@ -58,6 +58,9 @@ begin
   select o.* into v_order from public.asr_orders o where o.idempotency_key = p_idempotency_key;
   if found then
     select p.* into v_payment from public.asr_payments p where p.order_id = v_order.id;
+    if not found then
+      raise exception 'existing_order_has_no_payment_record' using errcode = 'P0001';
+    end if;
     select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'name', item->>'name', 'quantity', (item->>'quantity')::integer,
       'price', (item->>'line_total')::bigint
@@ -132,7 +135,7 @@ begin
       pg_catalog.jsonb_build_object('name', 'Ongkos kirim', 'quantity', 1, 'price', p_shipping_cost::bigint)
     );
   end if;
-  if v_subtotal + p_shipping_cost <= 0 or v_subtotal + p_shipping_cost > 999999999999 then
+  if v_subtotal + p_shipping_cost <= 0 or v_subtotal + p_shipping_cost > 9999999999 then
     raise exception 'payment_amount_out_of_range' using errcode = '22023';
   end if;
 
