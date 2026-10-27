@@ -127,6 +127,14 @@ Deno.serve(async (request) => {
     return response(request, { error: "order_record_invalid" }, 500, allowedOrigin);
   }
 
+  if (order.payment_status !== "pending") {
+    return response(request, {
+      error: "invoice_requires_reconciliation",
+      order_number: order.order_number,
+      payment_status: order.payment_status,
+    }, 409, allowedOrigin);
+  }
+
   if (order.payment_url && order.provider_reference) {
     return response(request, {
       order_id: order.order_id,
@@ -135,14 +143,6 @@ Deno.serve(async (request) => {
       reference: order.provider_reference,
       paymentUrl: order.payment_url,
     }, 200, allowedOrigin);
-  }
-
-  if (order.payment_status !== "pending") {
-    return response(request, {
-      error: "invoice_requires_reconciliation",
-      order_number: order.order_number,
-      payment_status: order.payment_status,
-    }, 409, allowedOrigin);
   }
 
   const markNeedsReview = async (reason: string) => {
