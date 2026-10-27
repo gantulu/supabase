@@ -40,7 +40,7 @@ Implementation policy:
 - `00` is the only callback success code consistent across the callback-specific descriptions.
 - Do not finalize non-`00` callbacks as `failed` until Duitku confirms the callback result-code contract.
 - Store unknown or conflicting results as `needs_review`; do not infer terminal status.
-- The current callback handler validates the documented form encoding and signature but intentionally returns 503 because the durable callback RPC, amount check against stored records, and idempotent transition are not yet wired. This prevents falsely acknowledging an unpersisted callback.
+- The callback handler now calls a durable RPC to reconcile merchant code, amount, merchant order ID, and provider reference. It returns HTTP 200 only after the callback result is persisted, including when the stored outcome is `needs_review`.
 
 ## Frontend POP contract (documented for integration boundaries)
 
@@ -68,12 +68,13 @@ Implemented from the official contract:
 - Constant-time signature comparison.
 - Signature unit tests.
 
-Not yet enabled:
-- Invoice creation orchestration with trusted price/stock lookup, order/payment persistence, and idempotency RPC.
-- Callback amount reconciliation, durable callback recording, idempotent state transitions, and HTTP 200 acknowledgement.
-- A confirmed callback failure result-code mapping. This is intentionally blocked on the official documentation conflict above.
+Implemented in source, not yet live-tested:
+- Transactional order creation using trusted catalog prices, stock reservation, idempotency, and integer-IDR `itemDetails` values.
+- Duitku Create Invoice request signing and persistence of provider reference/payment URL.
+- Callback HMAC validation, exact amount/reference/merchant reconciliation, durable callback persistence, and idempotent status transition.
+- Unknown/non-`00` callback results remain `needs_review` because the official failure-code descriptions conflict.
 
-No SQL in this repository has been applied to a Supabase database. No secrets, deployments, or live payments were changed or run.
+No SQL in this repository has been applied to a Supabase database. Edge Functions have not been deployed, and no secrets or live payments were changed or run. Integration tests and a stale-stock reservation release process remain outstanding.
 
 
 ## Expanded field contract (official reference)
